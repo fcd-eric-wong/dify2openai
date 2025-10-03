@@ -51,6 +51,7 @@ app.use((req, res, next) => {
   }
   console.log('Request Method:', req.method); 
   console.log('Request Path:', req.path);
+  console.log('Request Bath:', req.body ? req.body : null);
   next();
 });
 
@@ -366,4 +367,5 @@ app.post("/v1/chat/completions", async (req, res) => {
   }
 });
 
-app.listen(process.env.PORT || 3000);
+const server = app.listen(process.env.PORT || 3000);
+server.timeout = 60000
