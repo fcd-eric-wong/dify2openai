@@ -141,6 +141,7 @@ app.post("/v1/chat/completions", async (req, res) => {
         Authorization: `Bearer ${authHeader.split(" ")[1]}`,
       },
       body: JSON.stringify(requestBody),
+      signal: AbortSignal.timeout(360000)
     });
 
     let isResponseEnded = false;
@@ -368,4 +369,4 @@ app.post("/v1/chat/completions", async (req, res) => {
 });
 
 const server = app.listen(process.env.PORT || 3000);
-server.timeout = 60000
+server.timeout = 360000
