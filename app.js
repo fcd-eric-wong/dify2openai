@@ -141,9 +141,8 @@ app.post("/v1/chat/completions", async (req, res) => {
         Authorization: `Bearer ${authHeader.split(" ")[1]}`,
       },
       body: JSON.stringify(requestBody),
-      signal: AbortSignal.timeout(360000)
     });
-
+    console.log('Dify API Response: ', resp.body ? resp.body : null)
     let isResponseEnded = false;
 
     if (stream) {
@@ -356,6 +355,7 @@ app.post("/v1/chat/completions", async (req, res) => {
             system_fingerprint: "fp_2f57f81c11",
           };
           const jsonResponse = JSON.stringify(formattedResponse, null, 2);
+          console.log("Non-Stream Response: ", jsonResponse ? jsonResponse : null)
           res.set("Content-Type", "application/json");
           res.send(jsonResponse);
         } else {
@@ -369,4 +369,4 @@ app.post("/v1/chat/completions", async (req, res) => {
 });
 
 const server = app.listen(process.env.PORT || 3000);
-server.timeout = 360000
+server.timeout = 300000
