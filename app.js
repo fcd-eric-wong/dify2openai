@@ -51,7 +51,7 @@ app.use((req, res, next) => {
   }
   console.log('Request Method:', req.method); 
   console.log('Request Path:', req.path);
-  console.log('Request Bath:', req.body ? req.body : null);
+  console.log('Request Body:', req.body ? req.body : null);
   next();
 });
 
@@ -142,7 +142,7 @@ app.post("/v1/chat/completions", async (req, res) => {
       },
       body: JSON.stringify(requestBody),
     });
-    console.log('Dify API Response: ', resp.body ? resp.body : null)
+
     let isResponseEnded = false;
 
     if (stream) {
@@ -271,6 +271,7 @@ app.post("/v1/chat/completions", async (req, res) => {
       const stream = resp.body;
       stream.on("data", (chunk) => {
         buffer += chunk.toString();
+        console.log("Non-Stream Buffer: ", buffer || null)
         let lines = buffer.split("\n");
 
         for (let i = 0; i < lines.length - 1; i++) {
@@ -355,7 +356,6 @@ app.post("/v1/chat/completions", async (req, res) => {
             system_fingerprint: "fp_2f57f81c11",
           };
           const jsonResponse = JSON.stringify(formattedResponse, null, 2);
-          console.log("Non-Stream Response: ", jsonResponse ? jsonResponse : null)
           res.set("Content-Type", "application/json");
           res.send(jsonResponse);
         } else {
