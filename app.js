@@ -369,4 +369,4 @@ app.post("/v1/chat/completions", async (req, res) => {
 });
 
 const server = app.listen(process.env.PORT || 3000);
-server.timeout = 300000
+server.timeout = 600000
