@@ -17,7 +17,7 @@ function generateId() {
   return result;
 }
 const app = express();
-app.use(bodyParser.json());
+app.use(bodyParser.json({ limit: process.env.PAYLOAD_LIMIT }));
 const botType = process.env.BOT_TYPE || 'Chat';
 const inputVariable = process.env.INPUT_VARIABLE || '';
 const outputVariable = process.env.OUTPUT_VARIABLE || '';
