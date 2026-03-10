@@ -269,6 +269,7 @@ app.post("/v1/chat/completions", async (req, res) => {
 
 
       const stream = resp.body;
+      console.log("Non-Stream Response Body: ", resp.body || null)
       stream.on("data", (chunk) => {
         buffer += chunk.toString();
         console.log("Non-Stream Buffer: ", buffer || null)
