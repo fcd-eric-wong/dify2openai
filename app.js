@@ -269,10 +269,10 @@ app.post("/v1/chat/completions", async (req, res) => {
 
 
       const stream = resp.body;
-      console.log("Non-Stream Response Body: ", resp.body.toString() || null);
+      console.log("Non-Stream Response Body: ", JSON.stringify(stream, null, 2) || null);
       stream.on("data", (chunk) => {
         buffer += chunk.toString();
-        console.log("Non-Stream Buffer: ", buffer || null);
+//        console.log("Non-Stream Buffer: ", buffer || null);
         let lines = buffer.split("\n");
 
         for (let i = 0; i < lines.length - 1; i++) {
@@ -357,7 +357,7 @@ app.post("/v1/chat/completions", async (req, res) => {
             system_fingerprint: "fp_2f57f81c11",
           };
           const jsonResponse = JSON.stringify(formattedResponse, null, 2);
-          console.log("Json Response: ", jsonResponse.toString());
+          console.log("Non-Stream JSON Response: ", jsonResponse);
           res.set("Content-Type", "application/json");
           res.send(jsonResponse);
         } else {
