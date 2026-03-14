@@ -132,13 +132,22 @@ app.post("/v1/chat/completions", async (req, res) => {
                 auto_generate_name: false,
             };
         }
-        const resp = await fetch(process.env.DIFY_API_URL + apiPath, {
-            method: "POST",
+
+        const difyUrl = process.env.DIFY_API_URL + apiPath;
+        const difyMethod = "POST";
+        const difyBody = JSON.stringify(requestBody);
+
+        console.log("Dify Request Method:", difyMethod);
+        console.log("Dify Request Path:", difyUrl);
+        console.log("Dify Request Body:", difyBody ? difyBody : null);
+
+        const resp = await fetch(difyUrl, {
+            method: difyMethod,
             headers: {
                 "Content-Type": "application/json",
                 Authorization: `Bearer ${authHeader.split(" ")[1]}`,
             },
-            body: JSON.stringify(requestBody),
+            body: difyBody,
         });
 
         let isResponseEnded = false;
