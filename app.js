@@ -50,6 +50,7 @@ app.use((req, res, next) => {
     console.log("Request Method:", req.method);
     console.log("Request Path:", req.path);
     console.log("Request Body:", req.body ? req.body : null);
+    console.log("\n");
     next();
 });
 
@@ -139,7 +140,8 @@ app.post("/v1/chat/completions", async (req, res) => {
 
         console.log("Dify Request Method:", difyMethod);
         console.log("Dify Request Path:", difyUrl);
-        console.log("Dify Request Body:", difyBody ? difyBody : null);
+        console.log("Dify Request Body:", difyBody ? JSON.stringify(difyBody, null, 2) : null);
+        console.log("\n");
 
         const resp = await fetch(difyUrl, {
             method: difyMethod,
