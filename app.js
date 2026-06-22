@@ -5,6 +5,16 @@ import fetch from "node-fetch";
 dotenv.config();
 
 if (!process.env.DIFY_API_URL) throw new Error("DIFY API URL is required.");
+
+// Helper function to format bytes
+function formatBytes(bytes) {
+    if (bytes === 0) return "0 Bytes";
+    const k = 1024;
+    const sizes = ["Bytes", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + " " + sizes[i];
+}
+
 function generateId() {
     let result = "";
     const characters =
@@ -19,6 +29,16 @@ app.use(bodyParser.json({ limit: process.env.PAYLOAD_LIMIT }));
 const botType = process.env.BOT_TYPE || "Chat";
 const inputVariable = process.env.INPUT_VARIABLE || "";
 const outputVariable = process.env.OUTPUT_VARIABLE || "";
+
+// Log server configuration on startup
+console.log(`\n${"=".repeat(80)}`);
+console.log(`[${new Date().toISOString()}] SERVER CONFIGURATION`);
+console.log(`${"=".repeat(80)}`);
+console.log(`Payload Limit: ${process.env.PAYLOAD_LIMIT || "default (100kb)"}`);
+console.log(`Bot Type: ${botType}`);
+// console.log(`Input Variable: ${inputVariable || "none"}`);
+// console.log(`Output Variable: ${outputVariable || "none"}`);
+console.log(`${"=".repeat(80)}\n`);
 
 // Logging utility function
 function logRequest(label, details) {
@@ -78,7 +98,7 @@ app.use((req, res, next) => {
             "Host": req.get("host"),
         },
         "Client IP": req.ip,
-        "Body Size": JSON.stringify(req.body).length + " bytes",
+        "Body Size": formatBytes(JSON.stringify(req.body).length),
         "Body": req.body ? req.body : null,
     });
 
@@ -90,7 +110,7 @@ app.use((req, res, next) => {
             "Request ID": requestId,
             "Status Code": res.statusCode,
             "Duration": duration + " ms",
-            "Response Size": typeof data === "string" ? data.length + " bytes" : "stream",
+            "Response Size": typeof data === "string" ? formatBytes(data.length) : "stream",
             "Content-Type": res.get("content-type"),
         });
         originalSend.call(this, data);
@@ -192,7 +212,7 @@ app.post("/v1/chat/completions", async (req, res) => {
                 "Content-Type": "application/json",
                 "Authorization": "Bearer [REDACTED]",
             },
-            "Dify Body Size": difyBody.length + " bytes",
+            "Dify Body Size": formatBytes(difyBody.length),
             "Dify Body": requestBody,
         });
 
@@ -210,6 +230,7 @@ app.post("/v1/chat/completions", async (req, res) => {
         const difyResponseDuration = Date.now() - difyRequestStartTime;
 
         // Log Dify response metadata
+        const contentLength = resp.headers.get("content-length");
         logRequest("DIFY INCOMING RESPONSE", {
             "Request ID": req.requestId,
             "Dify Status Code": resp.status,
@@ -217,7 +238,7 @@ app.post("/v1/chat/completions", async (req, res) => {
             "Dify Response Duration": difyResponseDuration + " ms",
             "Dify Response Headers": {
                 "Content-Type": resp.headers.get("content-type"),
-                "Content-Length": resp.headers.get("content-length"),
+                "Content-Length": contentLength ? formatBytes(parseInt(contentLength)) : "unknown",
             },
             "Dify Stream Mode": stream ? "enabled" : "disabled",
         });
