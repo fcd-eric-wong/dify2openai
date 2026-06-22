@@ -20,6 +20,18 @@ const botType = process.env.BOT_TYPE || "Chat";
 const inputVariable = process.env.INPUT_VARIABLE || "";
 const outputVariable = process.env.OUTPUT_VARIABLE || "";
 
+// Logging utility function
+function logRequest(label, details) {
+    console.log(`\n${"=".repeat(80)}`);
+    console.log(`[${new Date().toISOString()}] ${label}`);
+    console.log(`${"=".repeat(80)}`);
+    Object.entries(details).forEach(([key, value]) => {
+        if (value !== null && value !== undefined) {
+            console.log(`${key}: ${typeof value === "object" ? JSON.stringify(value, null, 2) : value}`);
+        }
+    });
+}
+
 let apiPath;
 switch (botType) {
     case "Chat":
@@ -47,10 +59,43 @@ app.use((req, res, next) => {
     if (req.method === "OPTIONS") {
         return res.status(204).end();
     }
-    console.log("Request Method:", req.method);
-    console.log("Request Path:", req.path);
-    console.log("Request Body:", req.body ? req.body : null);
-    console.log("\n");
+
+    // Generate unique request ID for tracking
+    const requestId = `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    req.requestId = requestId;
+    req.startTime = Date.now();
+
+    // Log incoming request
+    logRequest("INCOMING REQUEST", {
+        "Request ID": requestId,
+        "Method": req.method,
+        "Path": req.path,
+        "Query Parameters": Object.keys(req.query).length > 0 ? req.query : "none",
+        "Headers": {
+            "Content-Type": req.get("content-type"),
+            "Authorization": req.get("authorization") ? "Bearer [REDACTED]" : "none",
+            "User-Agent": req.get("user-agent"),
+            "Host": req.get("host"),
+        },
+        "Client IP": req.ip,
+        "Body Size": JSON.stringify(req.body).length + " bytes",
+        "Body": req.body ? req.body : null,
+    });
+
+    // Log response when it's sent
+    const originalSend = res.send;
+    res.send = function (data) {
+        const duration = Date.now() - req.startTime;
+        logRequest("OUTGOING RESPONSE", {
+            "Request ID": requestId,
+            "Status Code": res.statusCode,
+            "Duration": duration + " ms",
+            "Response Size": typeof data === "string" ? data.length + " bytes" : "stream",
+            "Content-Type": res.get("content-type"),
+        });
+        originalSend.call(this, data);
+    };
+
     next();
 });
 
@@ -138,10 +183,20 @@ app.post("/v1/chat/completions", async (req, res) => {
         const difyMethod = "POST";
         const difyBody = JSON.stringify(requestBody);
 
-        console.log("Dify Request Method:", difyMethod);
-        console.log("Dify Request Path:", difyUrl);
-        console.log("Dify Request Body:", difyBody ? JSON.stringify(difyBody, null, 2) : null);
-        console.log("\n");
+        // Log outgoing Dify request
+        logRequest("DIFY OUTGOING REQUEST", {
+            "Request ID": req.requestId,
+            "Dify Method": difyMethod,
+            "Dify URL": difyUrl,
+            "Dify Headers": {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer [REDACTED]",
+            },
+            "Dify Body Size": difyBody.length + " bytes",
+            "Dify Body": requestBody,
+        });
+
+        const difyRequestStartTime = Date.now();
 
         const resp = await fetch(difyUrl, {
             method: difyMethod,
@@ -151,6 +206,25 @@ app.post("/v1/chat/completions", async (req, res) => {
             },
             body: difyBody,
         });
+
+        const difyResponseDuration = Date.now() - difyRequestStartTime;
+
+        // Log Dify response metadata
+        logRequest("DIFY INCOMING RESPONSE", {
+            "Request ID": req.requestId,
+            "Dify Status Code": resp.status,
+            "Dify Status Text": resp.statusText,
+            "Dify Response Duration": difyResponseDuration + " ms",
+            "Dify Response Headers": {
+                "Content-Type": resp.headers.get("content-type"),
+                "Content-Length": resp.headers.get("content-length"),
+            },
+            "Dify Stream Mode": stream ? "enabled" : "disabled",
+        });
+
+        if (!resp.ok) {
+            console.error(`\n[ERROR] Dify API returned status ${resp.status}: ${resp.statusText}`);
+        }
 
         let isResponseEnded = false;
 
@@ -229,6 +303,13 @@ app.post("/v1/chat/completions", async (req, res) => {
                     ) {
                         const chunkId = `chatcmpl-${Date.now()}`;
                         const chunkCreated = chunkObj.created_at;
+
+                        logRequest("STREAM EVENT - COMPLETION", {
+                            "Request ID": req.requestId,
+                            "Event Type": chunkObj.event,
+                            "Message Length": result.length,
+                        });
+
                         if (!isResponseEnded) {
                             res.write(
                                 "data: " +
@@ -258,6 +339,11 @@ app.post("/v1/chat/completions", async (req, res) => {
                     } else if (chunkObj.event === "ping") {
                     } else if (chunkObj.event === "error") {
                         console.error(`Error: ${chunkObj.code}, ${chunkObj.message}`);
+                        logRequest("STREAM EVENT - ERROR", {
+                            "Request ID": req.requestId,
+                            "Error Code": chunkObj.code,
+                            "Error Message": chunkObj.message,
+                        });
                         res
                             .status(500)
                             .write(
@@ -286,7 +372,7 @@ app.post("/v1/chat/completions", async (req, res) => {
             const stream = resp.body;
             stream.on("data", (chunk) => {
                 buffer += chunk.toString();
-                console.log("Non-Stream Buffer: ", buffer || null);
+                // console.log("Non-Stream Buffer: ", buffer || null);
                 let lines = buffer.split("\n");
 
                 for (let i = 0; i < lines.length - 1; i++) {
@@ -350,7 +436,13 @@ app.post("/v1/chat/completions", async (req, res) => {
             });
 
             stream.on("end", () => {
+                const duration = Date.now() - req.startTime;
                 if (hasError) {
+                    logRequest("STREAM PROCESSING - ERROR", {
+                        "Request ID": req.requestId,
+                        "Duration": duration + " ms",
+                        "Error": "An error occurred during stream processing",
+                    });
                     res
                         .status(500)
                         .json({ error: "An error occurred while processing the request." });
@@ -375,15 +467,36 @@ app.post("/v1/chat/completions", async (req, res) => {
                         system_fingerprint: "fp_2f57f81c11",
                     };
                     const jsonResponse = JSON.stringify(formattedResponse, null, 2);
-                    console.log("Non-Stream JSON Response: ", jsonResponse);
+
+                    logRequest("STREAM PROCESSING - COMPLETED", {
+                        "Request ID": req.requestId,
+                        "Duration": duration + " ms",
+                        "Response Size": jsonResponse.length + " bytes",
+                        "Model": data.model,
+                        "Usage": usageData,
+                    });
+
                     res.set("Content-Type", "application/json");
                     res.send(jsonResponse);
                 } else {
+                    logRequest("STREAM PROCESSING - UNEXPECTED END", {
+                        "Request ID": req.requestId,
+                        "Duration": duration + " ms",
+                    });
                     res.status(500).json({ error: "Unexpected end of stream." });
                 }
             });
         }
     } catch (error) {
+        const duration = Date.now() - req.startTime;
+        logRequest("ERROR IN REQUEST PROCESSING", {
+            "Request ID": req.requestId,
+            "Error Type": error.name,
+            "Error Message": error.message,
+            "Error Stack": error.stack,
+            "Total Duration": duration + " ms",
+            "Timestamp": new Date().toISOString(),
+        });
         console.error("Error:", error);
     }
 });
