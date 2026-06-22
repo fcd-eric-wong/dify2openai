@@ -97,7 +97,6 @@ app.use((req, res, next) => {
             "User-Agent": req.get("user-agent"),
             "Host": req.get("host"),
         },
-        "Client IP": req.ip,
         "Body Size": formatBytes(JSON.stringify(req.body).length),
         "Body": req.body ? req.body : null,
     });
