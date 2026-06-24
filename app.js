@@ -247,6 +247,7 @@ app.post("/v1/chat/completions", async (req, res) => {
         }
 
         let isResponseEnded = false;
+        let difyResponseBody = "";
 
         if (stream) {
             res.setHeader("Content-Type", "text/event-stream");
@@ -255,7 +256,9 @@ app.post("/v1/chat/completions", async (req, res) => {
             let isFirstChunk = true;
 
             stream.on("data", (chunk) => {
-                buffer += chunk.toString();
+                const chunkStr = chunk.toString();
+                buffer += chunkStr;
+                difyResponseBody += chunkStr;
                 let lines = buffer.split("\n");
 
                 for (let i = 0; i < lines.length - 1; i++) {
@@ -391,7 +394,9 @@ app.post("/v1/chat/completions", async (req, res) => {
 
             const stream = resp.body;
             stream.on("data", (chunk) => {
-                buffer += chunk.toString();
+                const chunkStr = chunk.toString();
+                buffer += chunkStr;
+                difyResponseBody += chunkStr;
                 // console.log("Non-Stream Buffer: ", buffer || null);
                 let lines = buffer.split("\n");
 
@@ -491,9 +496,15 @@ app.post("/v1/chat/completions", async (req, res) => {
                     logRequest("STREAM PROCESSING - COMPLETED", {
                         "Request ID": req.requestId,
                         "Duration": duration + " ms",
-                        "Response Size": jsonResponse.length + " bytes",
+                        "Response Size": formatBytes(jsonResponse.length),
                         "Model": data.model,
                         "Usage": usageData,
+                    });
+
+                    logRequest("OUTGOING RESPONSE BODY", {
+                        "Request ID": req.requestId,
+                        "Body Size": formatBytes(jsonResponse.length),
+                        "Body": jsonResponse,
                     });
 
                     res.set("Content-Type", "application/json");
